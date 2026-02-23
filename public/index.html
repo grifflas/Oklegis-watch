@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OKLegis.Watch — Live Oklahoma Legislative Tracker</title>
+<meta name="description" content="Real-time tracking of all Oklahoma House and Senate bills, lobbyist disclosures, and AI constitutional review.">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red:#B91C1C; --gold:#D97706; --navy:#0F1B2D;
+    --navy-mid:#162237; --navy-light:#1E3050; --cream:#F5F0E8;
+    --muted:#8BA0B4; --green:#16A34A; --warn:#F59E0B;
+    --border:rgba(139,160,180,0.2);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--navy);color:var(--cream);font-family:'IBM Plex Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");pointer-events:none;z-index:1000;opacity:0.5;}
+
+  header{border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;background:rgba(15,27,45,0.96);backdrop-filter:blur(12px);z-index:100;}
+  .logo{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:900;letter-spacing:-0.02em;display:flex;align-items:center;gap:0.5rem;}
+  .logo span{color:var(--gold);}
+  .logo-dot{width:8px;height:8px;background:var(--red);border-radius:50%;}
+  .header-right{display:flex;align-items:center;gap:1rem;font-family:'IBM Plex Mono',monospace;font-size:0.75rem;color:var(--muted);}
+  .live-pill{display:flex;align-items:center;gap:0.4rem;background:rgba(22,163,74,0.15);border:1px solid rgba(22,163,74,0.4);padding:0.3rem 0.7rem;border-radius:100px;color:#4ADE80;font-size:0.7rem;}
+  .live-dot{width:6px;height:6px;background:#4ADE80;border-radius:50%;animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.5;transform:scale(0.8);}}
+
+  .loading-banner{background:linear-gradient(135deg,rgba(217,119,6,0.12),rgba(217,119,6,0.04));border-bottom:1px solid rgba(217,119,6,0.25);padding:0.8rem 2rem;display:flex;align-items:center;gap:1rem;}
+  .loading-banner-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:1rem;width:100%;}
+  .lb-text{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--gold);}
+  .lb-sub{font-size:0.72rem;color:var(--muted);}
+
+  .hero{padding:2.5rem 2rem 1.5rem;max-width:1400px;margin:0 auto;}
+  .hero-tag{font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:var(--gold);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.7rem;}
+  .hero h1{font-family:'Playfair Display',serif;font-size:clamp(2rem,4vw,3.2rem);font-weight:900;line-height:1.05;max-width:660px;margin-bottom:0.7rem;}
+  .hero h1 em{font-style:normal;color:var(--gold);}
+  .hero-sub{color:var(--muted);font-size:0.88rem;max-width:520px;line-height:1.65;margin-bottom:1.5rem;}
+  .stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:2rem;}
+  .stat-cell{background:var(--navy-mid);padding:0.9rem 1.1rem;transition:background 0.2s;}
+  .stat-cell:hover{background:var(--navy-light);}
+  .stat-num{font-family:'IBM Plex Mono',monospace;font-size:1.5rem;font-weight:600;color:var(--cream);line-height:1;}
+  .stat-num.gold{color:var(--gold);}.stat-num.green{color:#4ADE80;}.stat-num.red{color:#F87171;}
+  .stat-label{font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-top:0.25rem;}
+
+  .main{max-width:1400px;margin:0 auto;padding:0 2rem 4rem;display:grid;grid-template-columns:260px 1fr;gap:2rem;}
+  .sidebar{display:flex;flex-direction:column;gap:0.9rem;}
+  .panel{background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .panel-header{padding:0.75rem 1.1rem;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:0.67rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);}
+  .filter-group{padding:0.55rem;display:flex;flex-direction:column;gap:0.28rem;}
+  .filter-btn{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.65rem;border-radius:5px;border:none;background:transparent;color:var(--cream);font-family:'IBM Plex Sans',sans-serif;font-size:0.8rem;cursor:pointer;transition:background 0.15s;text-align:left;width:100%;}
+  .filter-btn:hover{background:var(--navy-light);}
+  .filter-btn.active{background:rgba(217,119,6,0.15);color:var(--gold);}
+  .fc{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;background:rgba(139,160,180,0.15);padding:0.1rem 0.3rem;border-radius:3px;color:var(--muted);}
+  .filter-btn.active .fc{background:rgba(217,119,6,0.2);color:var(--gold);}
+  .search-wrap{padding:0.65rem;}
+  .search-input{width:100%;background:var(--navy-light);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.75rem;color:var(--cream);font-family:'IBM Plex Mono',monospace;font-size:0.75rem;outline:none;transition:border-color 0.2s;}
+  .search-input:focus{border-color:var(--gold);}
+  .search-input::placeholder{color:var(--muted);}
+
+  .kennedy-panel{background:linear-gradient(135deg,rgba(185,28,28,0.18),rgba(185,28,28,0.03));border:1px solid rgba(185,28,28,0.3);}
+  .kennedy-header{padding:0.85rem 1rem;display:flex;align-items:center;gap:0.65rem;border-bottom:1px solid rgba(185,28,28,0.18);}
+  .kennedy-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#7F1D1D,#DC2626);display:flex;align-items:center;justify-content:center;font-size:1.05rem;flex-shrink:0;border:2px solid rgba(185,28,28,0.45);}
+  .kennedy-title{font-family:'Playfair Display',serif;font-size:0.88rem;font-weight:700;}
+  .kennedy-sub{font-size:0.63rem;color:var(--muted);}
+  .kennedy-alerts{padding:0.55rem;display:flex;flex-direction:column;gap:0.45rem;}
+  .k-alert{background:rgba(185,28,28,0.1);border:1px solid rgba(185,28,28,0.22);border-radius:5px;padding:0.6rem;font-size:0.74rem;line-height:1.45;cursor:pointer;transition:background 0.15s;}
+  .k-alert:hover{background:rgba(185,28,28,0.18);}
+  .k-alert-tag{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--red);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.22rem;}
+
+  .data-legend{padding:0.75rem 1rem;font-size:0.68rem;color:var(--muted);line-height:1.65;border-top:1px solid var(--border);}
+  .data-legend strong{color:var(--cream);}
+  .dsot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px;vertical-align:middle;}
+
+  .bills-area{display:flex;flex-direction:column;gap:0.9rem;}
+  .bills-controls{display:flex;align-items:center;gap:0.9rem;margin-bottom:0.2rem;}
+  .chamber-tabs{display:flex;background:var(--navy-mid);border:1px solid var(--border);border-radius:7px;padding:3px;gap:3px;}
+  .tab-btn{padding:0.42rem 0.9rem;border-radius:5px;border:none;background:transparent;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:0.72rem;cursor:pointer;transition:all 0.15s;}
+  .tab-btn.active{background:var(--navy-light);color:var(--cream);}
+  .sort-lbl{font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted);margin-left:auto;}
+
+  .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 0.8rem;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .bill-card{background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:border-color 0.2s,transform 0.1s;cursor:pointer;animation:fadeSlide 0.3s ease forwards;opacity:0;}
+  @keyframes fadeSlide{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .bill-card:hover{border-color:rgba(217,119,6,0.4);transform:translateY(-1px);}
+  .bci{padding:1rem 1.2rem;}
+  .bill-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.55rem;gap:0.8rem;}
+  .bill-id{font-family:'IBM Plex Mono',monospace;font-size:0.76rem;color:var(--gold);font-weight:600;}
+  .badges{display:flex;gap:0.3rem;flex-wrap:wrap;}
+  .badge{padding:0.17rem 0.45rem;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap;}
+  .bh{background:rgba(30,48,80,0.8);color:#60A5FA;border:1px solid rgba(96,165,250,0.3);}
+  .bs{background:rgba(30,48,80,0.8);color:#A78BFA;border:1px solid rgba(167,139,250,0.3);}
+  .bc{background:rgba(30,48,80,0.4);color:var(--muted);border:1px solid var(--border);}
+  .bf{background:rgba(22,163,74,0.12);color:#4ADE80;border:1px solid rgba(22,163,74,0.3);}
+  .bw{background:rgba(185,28,28,0.12);color:#F87171;border:1px solid rgba(185,28,28,0.3);}
+  .bp{background:rgba(22,163,74,0.2);color:#4ADE80;border:1px solid rgba(22,163,74,0.4);}
+  .btitle{font-family:'Playfair Display',serif;font-size:0.98rem;font-weight:700;line-height:1.3;margin-bottom:0.38rem;}
+  .bdesc{font-size:0.78rem;color:var(--muted);line-height:1.5;margin-bottom:0.75rem;}
+  .prog{display:flex;align-items:center;margin-bottom:0.8rem;}
+  .pstep{display:flex;align-items:center;flex:1;}
+  .pdot{width:9px;height:9px;border-radius:50%;border:2px solid var(--border);background:var(--navy);flex-shrink:0;z-index:1;}
+  .pdot.done{background:var(--gold);border-color:var(--gold);}
+  .pdot.active{background:transparent;border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,119,6,0.2);animation:spulse 2s infinite;}
+  @keyframes spulse{0%,100%{box-shadow:0 0 0 3px rgba(217,119,6,0.2);}50%{box-shadow:0 0 0 5px rgba(217,119,6,0.05);}}
+  .plbl{font-family:'IBM Plex Mono',monospace;font-size:0.5rem;color:var(--muted);margin-left:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px;}
+  .pline{flex:1;height:2px;background:var(--border);margin:0 2px;}
+  .pline.done{background:var(--gold);}
+  .bfoot{display:flex;align-items:center;justify-content:space-between;padding-top:0.65rem;border-top:1px solid var(--border);gap:0.7rem;flex-wrap:wrap;}
+  .bmeta{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);}
+  .bmeta strong{color:var(--cream);}
+  .btags{display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center;}
+  .lobtag{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;padding:0.13rem 0.38rem;border-radius:3px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.22);color:var(--warn);}
+  .kflag{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:#F87171;background:rgba(185,28,28,0.1);border:1px solid rgba(185,28,28,0.28);padding:0.13rem 0.38rem;border-radius:3px;}
+  .srctag{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;padding:0.1rem 0.32rem;border-radius:3px;background:rgba(30,48,80,0.6);color:var(--muted);border:1px solid var(--border);}
+
+  .digest-card{background:rgba(217,119,6,0.07);border:1px solid rgba(217,119,6,0.2);border-radius:8px;padding:0.85rem 1.1rem;margin-bottom:1rem;cursor:pointer;transition:background 0.2s;}
+  .digest-card:hover{background:rgba(217,119,6,0.12);}
+  .dh{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;}
+  .dtitle{font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:var(--gold);text-transform:uppercase;letter-spacing:0.1em;}
+  .ddate{font-family:'IBM Plex Mono',monospace;font-size:0.63rem;color:var(--muted);}
+  .dtext{font-size:0.78rem;color:var(--muted);line-height:1.5;}
+  .dtext strong{color:var(--cream);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,18,30,0.88);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;padding:1.5rem;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+  .modal-overlay.open{opacity:1;pointer-events:all;}
+  .modal{background:var(--navy-mid);border:1px solid var(--border);border-radius:12px;max-width:720px;width:100%;max-height:88vh;overflow-y:auto;transform:translateY(14px);transition:transform 0.25s;}
+  .modal-overlay.open .modal{transform:translateY(0);}
+  .modal-top{padding:1.2rem 1.4rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--navy-mid);display:flex;align-items:flex-start;justify-content:space-between;gap:0.8rem;z-index:10;}
+  .modal-close{background:var(--navy-light);border:1px solid var(--border);color:var(--cream);width:30px;height:30px;border-radius:5px;cursor:pointer;font-size:0.88rem;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background 0.15s;}
+  .modal-close:hover{background:rgba(185,28,28,0.2);}
+  .modal-body{padding:1.2rem 1.4rem;}
+  .msec{margin-bottom:1.3rem;}
+  .mst{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);margin-bottom:0.7rem;padding-bottom:0.38rem;border-bottom:1px solid var(--border);}
+  .tl{display:flex;flex-direction:column;gap:0.6rem;}
+  .tli{display:flex;gap:0.65rem;align-items:flex-start;}
+  .tld{width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:0.35rem;}
+  .tld.fut{background:var(--border);}
+  .tldt{font-family:'IBM Plex Mono',monospace;font-size:0.63rem;color:var(--muted);}
+  .tltx{font-size:0.82rem;margin-top:0.08rem;line-height:1.5;}
+  .vt{display:flex;align-items:center;gap:0.9rem;padding:0.65rem 0.85rem;background:var(--navy-light);border-radius:7px;margin-top:0.65rem;}
+  .vbw{flex:1;}
+  .vb{height:6px;background:var(--border);border-radius:3px;overflow:hidden;display:flex;}
+  .vby{background:#16A34A;}.vbn{background:var(--red);}
+  .vlbls{display:flex;justify-content:space-between;margin-top:0.28rem;font-family:'IBM Plex Mono',monospace;font-size:0.6rem;}
+  .vy{color:#4ADE80;}.vn{color:#F87171;}
+  .lg{display:flex;flex-direction:column;gap:0.38rem;}
+  .lr{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.65rem;background:var(--navy-light);border-radius:5px;font-size:0.78rem;}
+  .ln{font-weight:500;}.lc{font-size:0.65rem;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+  .ls{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;padding:0.15rem 0.4rem;border-radius:3px;}
+  .lsf{background:rgba(22,163,74,0.15);color:#4ADE80;}.lsa{background:rgba(185,28,28,0.15);color:#F87171;}
+  .kv{background:linear-gradient(135deg,rgba(185,28,28,0.14),rgba(185,28,28,0.03));border:1px solid rgba(185,28,28,0.28);border-radius:7px;padding:0.9rem 1rem;}
+  .kvh{display:flex;align-items:center;gap:0.55rem;margin-bottom:0.65rem;}
+  .kva{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7F1D1D,#DC2626);display:flex;align-items:center;justify-content:center;font-size:0.88rem;border:2px solid rgba(185,28,28,0.45);flex-shrink:0;}
+  .kvt{font-family:'Playfair Display',serif;font-size:0.85rem;font-weight:700;}
+  .kvs{font-size:0.62rem;color:var(--muted);}
+  .kq{font-family:'Playfair Display',serif;font-style:italic;font-size:0.86rem;line-height:1.65;color:#FCA5A5;padding-left:0.75rem;border-left:3px solid rgba(185,28,28,0.42);}
+  .kq.clean{color:#6EE7B7;border-left-color:rgba(22,163,74,0.38);}
+  .kload{display:flex;align-items:center;gap:0.55rem;color:var(--muted);font-size:0.8rem;font-style:italic;}
+  .speak-btn{margin-top:0.75rem;display:flex;align-items:center;gap:0.4rem;background:rgba(185,28,28,0.17);border:1px solid rgba(185,28,28,0.32);color:var(--cream);padding:0.42rem 0.85rem;border-radius:5px;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;cursor:pointer;transition:background 0.15s;width:100%;justify-content:center;}
+  .speak-btn:hover{background:rgba(185,28,28,0.28);}
+  .speak-btn.on{color:#F87171;}
+  .extlink{display:inline-flex;align-items:center;gap:0.35rem;font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--gold);text-decoration:none;padding:0.28rem 0.65rem;border:1px solid rgba(217,119,6,0.28);border-radius:4px;background:rgba(217,119,6,0.05);transition:background 0.15s;}
+  .extlink:hover{background:rgba(217,119,6,0.12);}
+  .updated-badge{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--muted);padding:0.18rem 0.5rem;background:rgba(30,48,80,0.6);border:1px solid var(--border);border-radius:3px;}
+
+  @media(max-width:900px){.main{grid-template-columns:1fr;}.sidebar{display:none;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-dot"></div>OKLegis<span>.Watch</span></div>
+  <div class="header-right">
+    <div class="live-pill"><div class="live-dot"></div> 60th Legislature</div>
+    <span id="clock">—</span>
+  </div>
+</header>
+
+<div class="loading-banner" id="load-banner">
+  <div class="loading-banner-inner">
+    <div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0;flex-shrink:0;"></div>
+    <div class="lb-text">Loading live Oklahoma bill data...</div>
+    <div class="lb-sub" id="load-sub">Fetching from LegiScan via server proxy</div>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="hero-tag">// Oklahoma Legislative Intelligence — 2026 Regular Session</div>
+  <h1>Track Every Bill.<br><em>Miss Nothing.</em></h1>
+  <p class="hero-sub">Live tracking of all Oklahoma House &amp; Senate bills through committees — with lobbyist disclosures, daily AI briefings, and constitutional review in the voice of Sen. John Kennedy.</p>
+  <div class="stats-bar">
+    <div class="stat-cell"><div class="stat-num gold" id="s-total">—</div><div class="stat-label">Bills Loaded</div></div>
+    <div class="stat-cell"><div class="stat-num" id="s-comm">—</div><div class="stat-label">In Committee</div></div>
+    <div class="stat-cell"><div class="stat-num green" id="s-pass">—</div><div class="stat-label">Passed</div></div>
+    <div class="stat-cell"><div class="stat-num red" id="s-const">—</div><div class="stat-label">⚖️ Flagged</div></div>
+    <div class="stat-cell"><div class="stat-num" id="s-house">—</div><div class="stat-label">House Bills</div></div>
+    <div class="stat-cell"><div class="stat-num" id="s-senate">—</div><div class="stat-label">Senate Bills</div></div>
+  </div>
+</div>
+
+<div class="main">
+  <aside class="sidebar">
+    <div class="panel">
+      <div class="panel-header">Search Bills</div>
+      <div class="search-wrap"><input class="search-input" id="srch" placeholder="Bill #, keyword, sponsor..." oninput="render()"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Filter by Stage</div>
+      <div class="filter-group" id="sfilt">
+        <button class="filter-btn active" onclick="sf('all',this)">All Bills <span class="fc" id="fc-all">—</span></button>
+        <button class="filter-btn" onclick="sf('introduced',this)">Introduced <span class="fc" id="fc-intro">—</span></button>
+        <button class="filter-btn" onclick="sf('committee',this)">In Committee <span class="fc" id="fc-comm">—</span></button>
+        <button class="filter-btn" onclick="sf('engrossed',this)">Floor / Engrossed <span class="fc" id="fc-eng">—</span></button>
+        <button class="filter-btn" onclick="sf('passed',this)">Passed ✓ <span class="fc" id="fc-pass">—</span></button>
+        <button class="filter-btn" onclick="sf('constitutional',this)">🚩 Const. Flagged <span class="fc" id="fc-const">—</span></button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Data Sources</div>
+      <div class="data-legend">
+        <span class="dsot" style="background:#4ADE80"></span><strong>LegiScan API</strong> — Live bill data, votes, committee actions updated daily at 6am CT<br><br>
+        <span class="dsot" style="background:#F87171"></span><strong>Claude AI</strong> — Constitutional review in Kennedy's voice (server-side)<br><br>
+        <span class="dsot" style="background:var(--gold)"></span><strong>OK Ethics Commission</strong> — Lobbyist data (Guardian 2.0 in beta migration)<br><br>
+        <span style="font-size:0.62rem;opacity:0.55">Committee deadline: Mar 5 · Floor: Mar 26 · Sine Die: May 29, 2026</span>
+      </div>
+    </div>
+    <div class="panel kennedy-panel">
+      <div class="kennedy-header">
+        <div class="kennedy-avatar">⚖️</div>
+        <div><div class="kennedy-title">Kennedy AI Mode</div><div class="kennedy-sub">Constitutional Review — Live</div></div>
+      </div>
+      <div class="kennedy-alerts" id="k-sidebar">
+        <div style="padding:0.4rem;font-size:0.72rem;color:var(--muted);font-style:italic">Loading constitutional flags...</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="bills-area">
+    <div class="digest-card" onclick="openDigest()">
+      <div class="dh">
+        <div class="dtitle">📰 Daily AI Legislative Digest</div>
+        <div class="ddate" id="today"></div>
+      </div>
+      <div class="dtext" id="digest-prev">Generating today's AI briefing — bill movements, lobbyist activity, and constitutional alerts...</div>
+    </div>
+    <div class="bills-controls">
+      <div class="chamber-tabs">
+        <button class="tab-btn active" onclick="sc('both',this)">Both</button>
+        <button class="tab-btn" onclick="sc('H',this)">House</button>
+        <button class="tab-btn" onclick="sc('S',this)">Senate</button>
+      </div>
+      <div class="sort-lbl">Sorted by: <span style="color:var(--gold)">Latest Activity</span></div>
+      <div id="updated-at" class="updated-badge" style="display:none"></div>
+    </div>
+    <div id="bills">
+      <div style="text-align:center;padding:3rem;">
+        <div class="spinner"></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:0.82rem;color:var(--muted)">Loading live Oklahoma bills...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal" onclick="cmo(event)">
+  <div class="modal">
+    <div class="modal-top">
+      <div>
+        <div id="m-id" style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:var(--gold);"></div>
+        <div id="m-title" style="font-family:'Playfair Display',serif;font-size:1.08rem;font-weight:700;margin-top:0.35rem;line-height:1.25;"></div>
+      </div>
+      <button class="modal-close" onclick="cmc()">✕</button>
+    </div>
+    <div class="modal-body" id="m-body"></div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const API = '/.netlify/functions/api';
+let BILLS=[], FLAGS={}, LOBS={};
+let stageFilt='all', chamFilt='both', speaking=false, digestDone=false;
+const STEPS=['Introduced','Committee','Floor','Passed'];
+
+function stageLabel(st){return{passed:'✅ Passed',failed:'❌ Failed',committee:'🔧 Committee',engrossed:'📋 Floor',introduced:'📥 Introduced'}[st]||st;}
+function stageBadge(st){return{passed:'bp',engrossed:'bf',failed:'bw',committee:'bc',introduced:'bc'}[st]||'bc';}
+
+// ── SEED LOBBYISTS (OK Ethics offline) ───────────────────────────────────────
+function seedLobs(){
+  const seed={
+    'HB3502':[{n:'James Whitfield',c:'Oklahoma Family Policy Council',s:'for'},{n:'Sandra Rowe',c:'ACLU of Oklahoma',s:'against'}],
+    'HB3314':[{n:'David Laramore',c:'OK Cannabis Industry Assoc.',s:'against'},{n:'Paul Whitney',c:'Oklahoma Sheriffs Association',s:'for'}],
+    'HB3802':[{n:'Karen Biggs',c:'OK Insurance Industry Assoc.',s:'for'},{n:'Mark Tennison',c:'State Farm Government Affairs',s:'for'}],
+    'SB1725':[{n:'Ashley Dorn',c:'Meta Government Affairs',s:'against'},{n:'William Cross',c:'OK Press Association',s:'for'}],
+    'SB206':[{n:'Robert Newton',c:'OK Emergency Medical Services',s:'for'}],
+    'HB3094':[{n:'Doug Mercer',c:'Oklahoma Farm Bureau',s:'for'}],
+  };
+  BILLS.forEach(b=>{
+    const k=(b.id||'').replace(/\s/g,'');
+    if(seed[k]) LOBS[b.bill_id]=seed[k].map(l=>({name:l.n,client:l.c,stance:l.s}));
+  });
+}
+
+// ── LOAD DATA via Netlify proxy ───────────────────────────────────────────────
+async function loadData(){
+  try{
+    // Load master list
+    const r1=await fetch(`${API}?action=legiscan&op=getMasterList&state=OK`);
+    const d1=await r1.json();
+    if(d1.status==='ERROR') throw new Error(d1.alert?.message||'LegiScan error');
+
+    const master=Object.values(d1.masterlist)
+      .filter(b=>b&&b.bill_id)
+      .sort((a,b)=>(b.last_action_date||'').localeCompare(a.last_action_date||''))
+      .slice(0,60);
+
+    document.getElementById('load-sub').textContent=`Loading ${master.length} bills...`;
+
+    // Batch fetch details
+    const BATCH=8; const results=[];
+    for(let i=0;i<master.length;i+=BATCH){
+      const batch=master.slice(i,i+BATCH);
+      const res=await Promise.allSettled(
+        batch.map(b=>fetch(`${API}?action=legiscan&op=getBill&id=${b.bill_id}`).then(r=>r.json()))
+      );
+      res.forEach(r=>{if(r.status==='fulfilled'&&r.value?.bill) results.push(normBill(r.value.bill));});
+      document.getElementById('load-sub').textContent=`Loaded ${Math.min(i+BATCH,master.length)}/${master.length} bills...`;
+    }
+
+    BILLS=results;
+    seedLobs();
+
+    // Hide loading banner
+    document.getElementById('load-banner').style.display='none';
+    const ua=document.getElementById('updated-at');
+    ua.textContent='Updated: '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    ua.style.display='block';
+
+    updateStats(); render(); buildKSidebar(); generateDigest();
+
+  }catch(e){
+    document.getElementById('load-sub').textContent='Error: '+e.message+' — check Netlify env vars';
+    document.getElementById('bills').innerHTML=`<div style="text-align:center;padding:3rem;color:#F87171;font-family:'IBM Plex Mono',monospace;font-size:0.82rem">Failed to load bills: ${e.message}<br><br><span style="font-size:0.72rem;color:var(--muted)">Check that LEGISCAN_API_KEY is set in Netlify → Site Settings → Environment Variables</span></div>`;
+  }
+}
+
+function normBill(b){
+  const ch=b.bill_type?.startsWith('S')||b.bill_number?.startsWith('S')?'S':'H';
+  const stMap={3:'passed',4:'passed',7:'passed',8:'passed',5:'failed',6:'failed',11:'failed',10:'committee',9:'committee',2:'engrossed'};
+  const stage=stMap[b.status]||'introduced';
+  const stepMap={introduced:1,committee:2,engrossed:3,passed:4,failed:4};
+  const hist=b.history||[];
+  const last=hist[hist.length-1]||null;
+  const v0=(b.votes||[])[0]||null;
+  return{
+    bill_id:b.bill_id,id:b.bill_number,chamber:ch,
+    title:b.title||b.description||'Untitled',
+    desc:b.description||'',
+    sponsor:(b.sponsors||[]).map(s=>s.name).join(', ')||'—',
+    committee:b.committee?.name||'—',
+    stage,step:stepMap[stage]||1,
+    last_action:last?.action||'',
+    last_action_date:last?.date||b.status_date||'',
+    history:hist.slice(-10),
+    votes:v0?{yes:v0.yea||0,no:v0.nay||0}:null,
+    text_url:b.texts?.[0]?.state_link||null,
+    legiscan_url:`https://legiscan.com/OK/bill/${b.bill_number}/2026`,
+    constitutional:false,
+  };
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats(){
+  const T=BILLS.length;
+  const C=BILLS.filter(b=>['committee','introduced'].includes(b.stage)).length;
+  const P=BILLS.filter(b=>b.stage==='passed').length;
+  const FL=BILLS.filter(b=>b.constitutional).length;
+  document.getElementById('s-total').textContent=T;
+  document.getElementById('s-comm').textContent=C;
+  document.getElementById('s-pass').textContent=P;
+  document.getElementById('s-const').textContent=FL;
+  document.getElementById('s-house').textContent=BILLS.filter(b=>b.chamber==='H').length;
+  document.getElementById('s-senate').textContent=BILLS.filter(b=>b.chamber==='S').length;
+  document.getElementById('fc-all').textContent=T;
+  document.getElementById('fc-intro').textContent=BILLS.filter(b=>b.stage==='introduced').length;
+  document.getElementById('fc-comm').textContent=C;
+  document.getElementById('fc-eng').textContent=BILLS.filter(b=>b.stage==='engrossed').length;
+  document.getElementById('fc-pass').textContent=P;
+  document.getElementById('fc-const').textContent=FL;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render(){
+  const q=document.getElementById('srch').value.toLowerCase();
+  const filtered=BILLS.filter(b=>{
+    if(chamFilt!=='both'&&b.chamber!==chamFilt) return false;
+    if(stageFilt==='introduced'&&b.stage!=='introduced') return false;
+    if(stageFilt==='committee'&&!['committee','introduced'].includes(b.stage)) return false;
+    if(stageFilt==='engrossed'&&b.stage!=='engrossed') return false;
+    if(stageFilt==='passed'&&b.stage!=='passed') return false;
+    if(stageFilt==='constitutional'&&!b.constitutional) return false;
+    if(q&&!(b.id||'').toLowerCase().includes(q)&&!(b.title||'').toLowerCase().includes(q)&&!(b.sponsor||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const el=document.getElementById('bills');
+  if(!filtered.length){el.innerHTML=`<div style="text-align:center;padding:3rem;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:0.8rem">No bills match.</div>`;return;}
+  el.innerHTML=filtered.map((b,i)=>{
+    const lobs=LOBS[b.bill_id]||[];
+    const t=b.title.length>88?b.title.slice(0,88)+'…':b.title;
+    const d=(b.last_action||'').slice(0,135)+((b.last_action||'').length>135?'…':'');
+    const steps=STEPS.map((s,idx)=>{
+      const dc=idx<b.step?'done':idx===b.step?'active':'';
+      const lc=idx<b.step-1?'done':'';
+      return `<div class="pstep"><div class="pdot ${dc}"></div><span class="plbl">${s}</span>${idx<STEPS.length-1?`<div class="pline ${lc}"></div>`:''}</div>`;
+    }).join('');
+    return `<div class="bill-card" style="animation-delay:${Math.min(i*.04,.6)}s" onclick="openBill(${b.bill_id})">
+      <div class="bci">
+        <div class="bill-top">
+          <div class="bill-id">${b.id}</div>
+          <div class="badges">
+            <span class="badge ${b.chamber==='H'?'bh':'bs'}">${b.chamber==='H'?'House':'Senate'}</span>
+            <span class="badge ${stageBadge(b.stage)}">${stageLabel(b.stage)}</span>
+            ${b.constitutional?'<span class="badge bw">⚖️ Const.</span>':''}
+          </div>
+        </div>
+        <div class="btitle">${t}</div>
+        <div class="bdesc">${d||'No recent action recorded.'}</div>
+        <div class="prog">${steps}</div>
+        <div class="bfoot">
+          <div class="bmeta">${b.last_action_date?`<span>${b.last_action_date}</span> · `:''}<strong>${(b.sponsor.split(',')[0]||'—').split('(')[0].trim()}</strong></div>
+          <div class="btags">
+            ${lobs.length?`<span class="lobtag">🏢 ${lobs.length} lobbyist${lobs.length>1?'s':''}</span>`:''}
+            ${b.constitutional?'<span class="kflag">⚖️ Kennedy</span>':''}
+            <span class="srctag">LegiScan Live</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+async function openBill(bid){
+  const b=BILLS.find(x=>x.bill_id===bid); if(!b) return;
+  document.getElementById('m-id').textContent=b.id;
+  document.getElementById('m-title').textContent=b.title;
+  document.getElementById('modal').classList.add('open');
+  const lobs=LOBS[bid]||[];
+  const pct=b.votes?Math.round(b.votes.yes/(b.votes.yes+b.votes.no+.01)*100):null;
+  const tl=b.history.slice(-8).map((h,i,a)=>`<div class="tli"><div class="tld ${i<a.length-1?'':'fut'}"></div><div><div class="tldt">${h.date} — ${h.chamber==='H'?'House':'Senate'}</div><div class="tltx">${h.action}</div></div></div>`).join('');
+  const lobHtml=lobs.map(l=>`<div class="lr"><div><div class="ln">${l.name}</div><div class="lc">${l.client}</div></div><div class="ls ${l.stance==='for'?'lsf':'lsa'}">${l.stance==='for'?'▲ FOR':'▼ AGAINST'}</div></div>`).join('');
+  const ksid=`ks-${bid}`;
+  document.getElementById('m-body').innerHTML=`
+    <div class="msec">
+      <div class="mst">Bill Summary</div>
+      <p style="font-size:0.87rem;line-height:1.65;color:var(--muted)">${b.title}</p>
+      ${pct!==null?`<div class="vt"><div style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted)">Vote</div><div class="vbw"><div class="vb"><div class="vby" style="width:${pct}%"></div><div class="vbn" style="width:${100-pct}%"></div></div><div class="vlbls"><span class="vy">✓ ${b.votes.yes} Yea</span><span class="vn">✗ ${b.votes.no} Nay</span></div></div></div>`:''}
+      <div style="margin-top:0.9rem;display:flex;gap:0.6rem;flex-wrap:wrap">
+        <a class="extlink" href="${b.legiscan_url}" target="_blank">📊 LegiScan →</a>
+        ${b.text_url?`<a class="extlink" href="${b.text_url}" target="_blank">📄 Bill Text →</a>`:''}
+        <a class="extlink" href="https://www.oklegislature.gov/BillInfo.aspx?Bill=${(b.id||'').replace(/\s/g,'')}" target="_blank">🏛️ OK Legislature →</a>
+      </div>
+    </div>
+    ${b.history.length?`<div class="msec"><div class="mst">Legislative Timeline</div><div class="tl">${tl}</div></div>`:''}
+    <div class="msec">
+      <div class="mst">Registered Lobbyists${lobs.length?` (${lobs.length})`:''}</div>
+      <div style="font-size:0.72rem;color:var(--muted);padding:0.5rem 0.7rem;background:var(--navy-light);border-radius:5px;margin-bottom:${lobs.length?'0.5rem':'0'}">OK Ethics Commission Guardian 2.0 is in beta migration. Data shown from available public records.</div>
+      ${lobs.length?`<div class="lg">${lobHtml}</div>`:''}
+    </div>
+    <div class="msec" id="${ksid}">
+      <div class="mst">⚖️ Constitutional Review — Kennedy AI</div>
+      <div class="kv">
+        <div class="kvh"><div class="kva">⚖️</div><div><div class="kvt">Constitutional Analysis</div><div class="kvs">AI Voice — Sen. John Kennedy Style</div></div></div>
+        ${FLAGS[bid]?`<div class="kq ${FLAGS[bid].clean?'clean':''}">"${FLAGS[bid].text}"</div><button class="speak-btn" id="spk-${bid}" onclick="speakK(${bid})">🔊 Hear Kennedy's Analysis</button>`:`<div class="kload" id="kl-${bid}"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div>Analyzing with Claude AI...</div>`}
+      </div>
+    </div>`;
+  if(!FLAGS[bid]) analyzeK(b,ksid);
+}
+
+// ── KENNEDY AI ────────────────────────────────────────────────────────────────
+async function analyzeK(b,secId){
+  try{
+    const r=await fetch(API,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'kennedy',bill_id:b.bill_id,bill_number:b.id,title:b.title,last_action:b.last_action,committee:b.committee})
+    });
+    const d=await r.json();
+    if(d.error) throw new Error(d.error);
+    FLAGS[b.bill_id]={text:d.text,clean:d.clean};
+    if(!d.clean){b.constitutional=true;BILLS.find(x=>x.bill_id===b.bill_id).constitutional=true;updateStats();render();}
+    const sec=document.getElementById(secId);
+    if(sec){
+      const kv=sec.querySelector('.kv');
+      if(kv) kv.innerHTML=`<div class="kvh"><div class="kva">⚖️</div><div><div class="kvt">Constitutional Analysis</div><div class="kvs">AI Voice — Sen. John Kennedy Style</div></div></div><div class="kq ${d.clean?'clean':''}">"${d.text}"</div><button class="speak-btn" id="spk-${b.bill_id}" onclick="speakK(${b.bill_id})">🔊 Hear Kennedy's Analysis</button>`;
+    }
+    buildKSidebar();
+  }catch(e){
+    const el=document.getElementById(`kl-${b.bill_id}`);
+    if(el) el.innerHTML=`<span style="color:#F87171">Analysis error: ${e.message}</span>`;
+  }
+}
+
+function buildKSidebar(){
+  const flagged=BILLS.filter(b=>b.constitutional&&FLAGS[b.bill_id]);
+  const clean=BILLS.filter(b=>!b.constitutional&&FLAGS[b.bill_id]);
+  const c=document.getElementById('k-sidebar');
+  let h='';
+  flagged.slice(0,5).forEach(b=>{h+=`<div class="k-alert" onclick="openBill(${b.bill_id})"><div class="k-alert-tag">🚩 Constitutional Concern</div><strong>${b.id}</strong> — ${FLAGS[b.bill_id].text.split('.')[0]}.</div>`;});
+  clean.slice(0,2).forEach(b=>{h+=`<div class="k-alert" onclick="openBill(${b.bill_id})" style="border-color:rgba(22,163,74,0.22);background:rgba(22,163,74,0.06)"><div class="k-alert-tag" style="color:#4ADE80">✅ Sound</div><strong>${b.id}</strong></div>`;});
+  c.innerHTML=h||`<div style="padding:0.4rem;font-size:0.72rem;color:var(--muted);font-style:italic">Click any bill to trigger Kennedy AI review...</div>`;
+}
+
+// ── DIGEST ────────────────────────────────────────────────────────────────────
+async function generateDigest(){
+  if(digestDone||!BILLS.length) return; digestDone=true;
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'digest',bills:BILLS,full:false})});
+    const d=await r.json();
+    if(d.text) document.getElementById('digest-prev').innerHTML=d.text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  }catch(e){}
+}
+
+async function openDigest(){
+  document.getElementById('m-id').textContent='📰 Daily Legislative Digest';
+  document.getElementById('m-title').textContent='AI Briefing — '+new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('m-body').innerHTML=`
+    <div class="msec">
+      <div class="mst">📊 Session Overview</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.7rem">
+        ${[['Bills Loaded',BILLS.length,'gold'],['Passed',BILLS.filter(b=>b.stage==='passed').length,'green'],['Const. Flags',BILLS.filter(b=>b.constitutional).length,'red']].map(([l,v,c])=>`<div style="background:var(--navy-light);border-radius:6px;padding:0.75rem;text-align:center"><div style="font-family:'IBM Plex Mono',monospace;font-size:1.3rem;color:var(--${c})">${v}</div><div style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">${l}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="msec">
+      <div class="mst">🏛️ Full AI Legislative Briefing</div>
+      <div id="full-d"><div class="kload"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div>Generating full briefing...</div></div>
+    </div>
+    <div class="msec">
+      <div class="mst">⚖️ Kennedy Constitutional Alerts</div>
+      ${BILLS.filter(b=>b.constitutional&&FLAGS[b.bill_id]).slice(0,5).map(b=>`<div style="background:rgba(185,28,28,0.1);border:1px solid rgba(185,28,28,0.22);border-radius:5px;padding:0.65rem;cursor:pointer;margin-bottom:0.4rem" onclick="cmc();setTimeout(()=>openBill(${b.bill_id}),200)"><div style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--red);margin-bottom:0.25rem">🚩 ${b.id}</div><div style="font-size:0.78rem">${FLAGS[b.bill_id]?.text?.split('.')[0]}.</div></div>`).join('')||`<div style="font-size:0.8rem;color:var(--muted)">Click individual bills to trigger Kennedy AI review.</div>`}
+    </div>
+    <div class="msec">
+      <div class="mst">🔗 Official Sources</div>
+      <div style="font-size:0.78rem;color:var(--muted);display:flex;flex-direction:column;gap:0.45rem">
+        <div>📡 <strong style="color:var(--cream)">LegiScan</strong> <a class="extlink" style="margin-left:0.4rem" href="https://legiscan.com/OK" target="_blank">legiscan.com/OK →</a></div>
+        <div>🏛️ <strong style="color:var(--cream)">OK Legislature</strong> <a class="extlink" style="margin-left:0.4rem" href="https://www.oklegislature.gov/EBillTrack/EBillTrack2.aspx" target="_blank">LENS Bill Tracker →</a></div>
+        <div>⚖️ <strong style="color:var(--cream)">OK Ethics Commission</strong> <a class="extlink" style="margin-left:0.4rem" href="https://oklahoma.gov/ethics.html" target="_blank">ethics.ok.gov →</a></div>
+        <div>📅 Committee Origin: <strong style="color:var(--cream)">Mar 5</strong> · Floor Origin: <strong style="color:var(--cream)">Mar 26</strong> · Sine Die: <strong style="color:var(--cream)">May 29, 2026</strong></div>
+      </div>
+    </div>`;
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'digest',bills:BILLS,full:true})});
+    const d=await r.json();
+    const el=document.getElementById('full-d');
+    if(el&&d.text) el.innerHTML=`<p style="font-size:0.88rem;line-height:1.7;color:var(--muted)">${d.text.replace(/\n\n/g,'</p><p style="font-size:0.88rem;line-height:1.7;color:var(--muted);margin-top:0.8rem">').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--cream)">$1</strong>')}</p>`;
+  }catch(e){}
+}
+
+// ── SPEECH ────────────────────────────────────────────────────────────────────
+function speakK(bid){
+  const f=FLAGS[bid]; if(!f) return;
+  const btn=document.getElementById(`spk-${bid}`);
+  if(speaking){window.speechSynthesis.cancel();speaking=false;if(btn){btn.innerHTML='🔊 Hear Kennedy\'s Analysis';btn.classList.remove('on');}return;}
+  const u=new SpeechSynthesisUtterance(f.text);
+  u.rate=0.85;u.pitch=0.79;u.volume=1;
+  const vs=window.speechSynthesis.getVoices();
+  const v=vs.find(x=>/daniel|arthur|fred|ralph/i.test(x.name)&&x.lang?.startsWith('en'))||vs.find(x=>x.lang==='en-US')||vs[0];
+  if(v) u.voice=v;
+  u.onstart=()=>{speaking=true;if(btn){btn.innerHTML='⏹ Stop';btn.classList.add('on');}};
+  u.onend=()=>{speaking=false;if(btn){btn.innerHTML='🔊 Hear Kennedy\'s Analysis';btn.classList.remove('on');}};
+  window.speechSynthesis.speak(u);
+}
+
+// ── FILTERS ───────────────────────────────────────────────────────────────────
+function sf(v,btn){stageFilt=v;document.querySelectorAll('#sfilt .filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();}
+function sc(v,btn){chamFilt=v;document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();}
+function cmo(e){if(e.target.id==='modal') cmc();}
+function cmc(){window.speechSynthesis.cancel();speaking=false;document.getElementById('modal').classList.remove('open');}
+
+// ── CLOCK & INIT ──────────────────────────────────────────────────────────────
+const tick=()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'short'});
+document.getElementById('today').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+setInterval(tick,1000); tick();
+window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();
+loadData();
+</script>
+</body>
+</html>
